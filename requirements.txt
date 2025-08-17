@@ -1,0 +1,17 @@
+flask
+requests
+beautifulsoup4
+langchain
+langchain-community
+langchain-google-genai
+langchain-openai
+langchain-anthropic
+faiss-cpu
+PyYAML
+gitpython
+chromadb
+unstructured
+markdown
+tqdm
+langchain-chroma
+python-dotenv

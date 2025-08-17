@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vale AI Rule Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .container { max-width: 800px; }
+        .card { margin-top: 1.5rem; }
+        .card-header { font-size: 1.25rem; font-weight: 500; }
+        .form-label { font-weight: 500; }
+        #result-container {
+            background-color: #282c34;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            min-height: 150px;
+            position: relative;
+        }
+        #result-code {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .spinner-border { width: 1.5rem; height: 1.5rem; margin-left: 0.5rem; }
+        #copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            z-index: 10;
+        }
+        #debug-info-container {
+            background-color: #e9ecef;
+            font-size: 0.8rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .rule-item {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            background: white;
+        }
+        .rule-header .accordion-button {
+            background-color: #f8f9fa;
+            border: none;
+            border-radius: 0.375rem 0.375rem 0 0;
+            padding: 0.75rem 1rem;
+        }
+        .rule-header .accordion-button:focus {
+            box-shadow: none;
+            border-color: transparent;
+        }
+        .rule-header .accordion-button:not(.collapsed) {
+            background-color: #e7f3ff;
+            color: #0d47a1;
+        }
+        .confidence-bar {
+            width: 100px;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-left: 1rem;
+        }
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .confidence-high { background-color: #28a745; }
+        .confidence-medium { background-color: #ffc107; }
+        .confidence-low { background-color: #dc3545; }
+        .rule-content {
+            background-color: #282c34;
+            border-radius: 0 0 0.375rem 0.375rem;
+            padding: 1rem;
+            position: relative;
+        }
+        .rule-copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            z-index: 10;
+        }
+        .rule-code {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+        }
+        .rule-reasoning {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Vale Linter Rule Generator</span>
+                <div class="d-flex align-items-center">
+                    <select class="form-select form-select-sm me-2" id="provider-select" style="width: auto;">
+                        <option disabled>Loading providers...</option>
+                    </select>
+                    <span class="badge bg-secondary" id="current-provider">Loading...</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="rule-form">
+                    <div class="mb-3">
+                        <label for="examples" class="form-label">Example prompts</label>
+                        <select class="form-select" id="examples">
+                            <option selected disabled>Select an example from a style guide...</option>
+                            <option value="From the Splunk Style Guide: Create a rule that flags device-specific language like 'click', 'double-click', 'right-click', 'press', and 'tap'. It should suggest using device-agnostic words like 'select' or 'enter' instead. Focus on the action, not the gesture.">Splunk Style: Use device-agnostic language</option>
+                            <option value="From the Microsoft Style Guide: Avoid using 'utilize'. Create a rule that suggests replacing 'utilize', 'utilizing', and 'utilization' with 'use' or 'using'.">Microsoft Style: Simplify words ('use' not 'utilize')</option>
+                            <option value="From the Google Developer Docs Style Guide: Use active voice instead of passive voice. Create a rule that flags common passive voice constructions like 'is built', 'was created by', and 'is recommended'.">Google Style: Use active voice</option>
+                            <option value="From the Google Developer Docs Style Guide: Use present tense to describe what code does. Create a rule to flag future tense, such as 'will return' or 'will be', and suggest the present tense 'returns' or 'is'.">Google Style: Use present tense for code</option>
+                            <option value="Create a rule that flags 'weasel words' such as 'very', 'clearly', 'simply', 'obviously', and 'basically'. These words often add little value.">General: Avoid weasel words</option>
+                            <option value="Create a rule to enforce title case capitalization for headings. It should flag headings that are not properly capitalized in title case.">General: Enforce title case for headings</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="request" class="form-label">Rule description</label>
+                        <textarea class="form-control" id="request" rows="4" placeholder="e.g., Create a rule that flags the use of the word 'obviously' and suggests removing it." required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="severity" class="form-label">Severity level</label>
+                        <select class="form-select" id="severity">
+                            <option value="warning">Warning</option>
+                            <option value="error">Error</option>
+                            <option value="suggestion">Suggestion</option>
+                        </select>
+                    </div>
+
+                    <div id="error-alert" class="alert alert-danger d-none" role="alert"></div>
+
+                    <div class="d-flex align-items-center">
+                        <button type="submit" id="generate-btn" class="btn btn-primary">
+                            Generate Rule
+                            <div id="spinner" class="spinner-border text-light d-none" role="status"></div>
+                        </button>
+                        <span id="status-text" class="text-muted ms-3 d-none"></span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-4">
+            <div class="card-header">Generated rules</div>
+            <div class="card-body">
+                <div id="rules-container">
+                    <p class="text-muted">Your generated rules will appear here...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion mt-3" id="debug-accordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-debug" aria-expanded="false" aria-controls="collapse-debug">
+                        Debug Info (Retrieved Context)
+                    </button>
+                </h2>
+                <div id="collapse-debug" class="accordion-collapse collapse" data-bs-parent="#debug-accordion">
+                    <div class="accordion-body" id="debug-info-container">
+                        <pre>Context from the RAG process will appear here after a rule is generated.</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script>
+        // --- DOM Elements ---
+        const ruleForm = document.getElementById('rule-form');
+        const examplesSelect = document.getElementById('examples');
+        const generateButton = document.getElementById('generate-btn');
+        const spinner = document.getElementById('spinner');
+        const errorAlert = document.getElementById('error-alert');
+        const statusText = document.getElementById('status-text');
+        const rulesContainer = document.getElementById('rules-container');
+        const debugInfoPre = document.querySelector('#debug-info-container pre');
+        const requestTextArea = document.getElementById('request');
+        const providerSelect = document.getElementById('provider-select');
+        const currentProviderBadge = document.getElementById('current-provider');
+
+        // --- Event Listeners ---
+        ruleForm.addEventListener('submit', handleFormSubmit);
+        examplesSelect.addEventListener('change', handleExampleSelect);
+        providerSelect.addEventListener('change', handleProviderChange);
+
+        // --- Initialize providers on page load ---
+        document.addEventListener('DOMContentLoaded', loadProviders);
+
+        // --- Handlers ---
+        function handleExampleSelect(event) {
+            if (event.target.value) {
+                requestTextArea.value = event.target.value;
+            }
+        }
+
+        function getConfidenceClass(confidence) {
+            if (confidence >= 80) return 'confidence-high';
+            if (confidence >= 60) return 'confidence-medium';
+            return 'confidence-low';
+        }
+
+        function createRuleElement(rule, index) {
+            const isRecommended = index === 0;
+            const ruleDiv = document.createElement('div');
+            ruleDiv.className = 'rule-item';
+            
+            const ruleId = `rule-${index}`;
+            const cleanRule = rule.rule.replace(/^```yaml\n/gm, '').replace(/\n```$/gm, '');
+            
+            const collapseId = `collapse-${ruleId}`;
+            const isExpanded = isRecommended ? 'true' : 'false';
+            const collapseClass = isRecommended ? 'show' : '';
+            
+            ruleDiv.innerHTML = `
+                <div class="rule-header">
+                    <button class="accordion-button ${isRecommended ? '' : 'collapsed'}" type="button" 
+                            data-bs-toggle="collapse" data-bs-target="#${collapseId}" 
+                            aria-expanded="${isExpanded}" aria-controls="${collapseId}">
+                        <div class="w-100 d-flex justify-content-between align-items-center me-3">
+                            <div>
+                                <strong>${isRecommended ? 'Recommended' : 'Alternative'} Rule</strong>
+                                <span class="badge ${isRecommended ? 'bg-primary' : 'bg-secondary'} ms-2">
+                                    ${rule.confidence}% confidence
+                                </span>
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill ${getConfidenceClass(rule.confidence)}" 
+                                     style="width: ${rule.confidence}%"></div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+                <div id="${collapseId}" class="accordion-collapse collapse ${collapseClass}" data-bs-parent="#rules-container">
+                    <div class="rule-content">
+                        <button class="btn btn-secondary btn-sm rule-copy-btn" onclick="copyRule('${ruleId}')">Copy</button>
+                        <pre><code id="${ruleId}" class="language-yaml rule-code">${cleanRule}</code></pre>
+                        <div class="rule-reasoning">${rule.reasoning}</div>
+                    </div>
+                </div>
+            `;
+            
+            return ruleDiv;
+        }
+
+        function copyRule(ruleId) {
+            const ruleElement = document.getElementById(ruleId);
+            navigator.clipboard.writeText(ruleElement.textContent).then(() => {
+                const copyBtn = ruleElement.parentNode.querySelector('.rule-copy-btn');
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('btn-success');
+                copyBtn.classList.remove('btn-secondary');
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.classList.remove('btn-success');
+                    copyBtn.classList.add('btn-secondary');
+                }, 2000);
+            }).catch(err => console.error('Failed to copy text: ', err));
+        }
+
+        // Make copyRule globally accessible
+        window.copyRule = copyRule;
+
+        function displayRules(rules) {
+            rulesContainer.innerHTML = '';
+            
+            rules.forEach((rule, index) => {
+                const ruleElement = createRuleElement(rule, index);
+                rulesContainer.appendChild(ruleElement);
+                
+                // Apply syntax highlighting
+                const codeElement = ruleElement.querySelector('code');
+                hljs.highlightElement(codeElement);
+            });
+        }
+
+        async function loadProviders() {
+            try {
+                const response = await fetch('/api/providers');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const providers = data.providers;
+                    const currentProvider = data.current;
+                    
+                    // Clear existing options
+                    providerSelect.innerHTML = '';
+                    
+                    // Add provider options
+                    providers.forEach(provider => {
+                        const option = document.createElement('option');
+                        option.value = provider.id;
+                        option.textContent = provider.name;
+                        option.title = provider.description;
+                        if (provider.id === currentProvider) {
+                            option.selected = true;
+                        }
+                        providerSelect.appendChild(option);
+                    });
+                    
+                    // Update current provider badge
+                    currentProviderBadge.textContent = currentProvider.toUpperCase();
+                    currentProviderBadge.className = `badge ${getProviderBadgeClass(currentProvider)}`;
+                    
+                    // Enable the select if there are multiple providers
+                    providerSelect.disabled = providers.length <= 1;
+                    
+                } else {
+                    console.error('Failed to load providers:', data.error);
+                    currentProviderBadge.textContent = 'ERROR';
+                    currentProviderBadge.className = 'badge bg-danger';
+                }
+            } catch (error) {
+                console.error('Error loading providers:', error);
+                currentProviderBadge.textContent = 'ERROR';
+                currentProviderBadge.className = 'badge bg-danger';
+            }
+        }
+
+        async function handleProviderChange(event) {
+            const newProvider = event.target.value;
+            if (!newProvider) return;
+            
+            // Show loading state
+            const originalText = currentProviderBadge.textContent;
+            currentProviderBadge.textContent = 'Switching...';
+            currentProviderBadge.className = 'badge bg-warning';
+            providerSelect.disabled = true;
+            
+            try {
+                const response = await fetch('/api/switch-provider', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: newProvider })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Update badge with new provider
+                    currentProviderBadge.textContent = data.provider;
+                    currentProviderBadge.className = `badge ${getProviderBadgeClass(newProvider)}`;
+                    
+                    // Show success message briefly
+                    showSuccessMessage(`Switched to ${data.provider}`);
+                } else {
+                    throw new Error(data.error || 'Failed to switch provider');
+                }
+            } catch (error) {
+                console.error('Error switching provider:', error);
+                // Revert selection
+                providerSelect.value = originalText.toLowerCase();
+                currentProviderBadge.textContent = originalText;
+                currentProviderBadge.className = `badge ${getProviderBadgeClass(originalText.toLowerCase())}`;
+                
+                // Show error
+                showErrorMessage(`Failed to switch provider: ${error.message}`);
+            } finally {
+                providerSelect.disabled = false;
+            }
+        }
+
+        function getProviderBadgeClass(provider) {
+            switch (provider.toLowerCase()) {
+                case 'gemini': return 'bg-primary';
+                case 'openai': return 'bg-success';
+                case 'claude': return 'bg-info';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function showSuccessMessage(message) {
+            // You could implement a toast or temporary message here
+            console.log('Success:', message);
+        }
+
+        function showErrorMessage(message) {
+            errorAlert.textContent = message;
+            errorAlert.classList.remove('d-none');
+            setTimeout(() => {
+                errorAlert.classList.add('d-none');
+            }, 5000);
+        }
+
+        function showStatus(message) {
+            statusText.textContent = message;
+            statusText.classList.remove('d-none');
+        }
+
+        function hideStatus() {
+            statusText.classList.add('d-none');
+            statusText.textContent = '';
+        }
+
+        // Variable to store status timeouts
+        let statusTimeouts = [];
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            
+            // Reset UI
+            generateButton.disabled = true;
+            spinner.classList.remove('d-none');
+            errorAlert.classList.add('d-none');
+            
+            // Clear any existing status timeouts
+            statusTimeouts.forEach(timeout => clearTimeout(timeout));
+            statusTimeouts = [];
+            
+            // Show initial status
+            showStatus('Analyzing your request...');
+            
+            // Reset rules container
+            rulesContainer.innerHTML = '<p class="text-muted">Generating rules...</p>';
+            
+            debugInfoPre.textContent = 'Retrieving context...';
+
+            try {
+                // Show sequence of status messages with timing
+                showStatus('Searching knowledge base...');
+                
+                // Start the API request
+                const fetchPromise = fetch('/api/generate-rule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        request: requestTextArea.value,
+                        severity: document.getElementById('severity').value
+                    })
+                });
+                
+                // Update status after initial delay
+                statusTimeouts.push(setTimeout(() => {
+                    showStatus('Generating rules with AI...');
+                }, 1500));
+                
+                // Update status again for longer requests
+                statusTimeouts.push(setTimeout(() => {
+                    showStatus('Creating multiple alternatives...');
+                }, 4000));
+                
+                // Wait for the actual response
+                const response = await fetchPromise;
+
+                // Clear any remaining timeouts since we have a response
+                statusTimeouts.forEach(timeout => clearTimeout(timeout));
+                statusTimeouts = [];
+
+                // Update status for response processing
+                showStatus('Processing results...');
+                
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                }
+
+                // --- Update UI with results ---
+                showStatus('Finalizing rules and confidence scores...');
+                
+                if (data.rules && data.rules.length > 0) {
+                    displayRules(data.rules);
+                } else {
+                    // Fallback for single rule format
+                    const fallbackRules = [{
+                        rule: data.rule || 'No rule generated',
+                        confidence: 75,
+                        reasoning: 'Single rule response format'
+                    }];
+                    displayRules(fallbackRules);
+                }
+
+                debugInfoPre.textContent = data.debug_context;
+                
+                // Hide status when complete
+                setTimeout(() => hideStatus(), 500);
+
+            } catch (error) {
+                // Clear any remaining timeouts on error
+                statusTimeouts.forEach(timeout => clearTimeout(timeout));
+                statusTimeouts = [];
+                
+                console.error('Error:', error);
+                errorAlert.textContent = error.message;
+                errorAlert.classList.remove('d-none');
+                
+                // Reset rules container for error
+                rulesContainer.innerHTML = '<p class="text-muted">An error occurred. Please check the error message above.</p>';
+                
+                debugInfoPre.textContent = '-';
+                hideStatus();
+            } finally {
+                generateButton.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+    </script>
+</body>
+</html>
