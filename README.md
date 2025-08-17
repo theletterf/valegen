@@ -3,17 +3,17 @@
 
 A web-based tool to generate [Vale](https://vale.sh) linter rules using natural language. It uses AI models combined with the official Vale documentation to create accurate YAML configurations.
 
+<img width="1710" height="907" alt="Screenshot 2025-08-17 at 23 34 55" src="https://github.com/user-attachments/assets/a0e4b3d7-0099-4929-8b9a-8a7675803448" />
+
 This tool is designed to lower the barrier to entry for creating custom Vale rules by translating plain English requests into valid rule syntax.
 
 ## Features
 
-*   **Multiple AI providers**: Support for Google Gemini, OpenAI GPT, and Anthropic Claude models
-*   **Rule alternatives with confidence scores**: Get 3 different rule approaches with confidence ratings (recommended and alternative options)
-*   **Smart rule generation**: Uses retrieval-augmented generation (RAG) with Vale documentation and real rule examples
-*   **Professional examples**: Pre-loaded prompts from Google, Microsoft, and Splunk style guides
-*   **Interactive UI**: Clean web interface with collapsible alternatives, syntax highlighting, and copy buttons
-*   **Progressive feedback**: Real-time status updates during rule generation
-*   **Debug transparency**: View the exact documentation snippets used to generate rules
+*  Support for Google Gemini, OpenAI GPT, and Anthropic Claude models
+*  Get 3 different rule approaches with confidence ratings (recommended and alternative options)
+*  Uses retrieval-augmented generation (RAG) with Vale documentation and real rule examples
+*  Clean web interface with collapsible alternatives, syntax highlighting, and copy buttons
+*  View the exact documentation snippets used to generate rules
 
 ## How it works
 
