@@ -1,11 +1,9 @@
 
 # Vale Rule Generator
 
-A web-based tool to generate [Vale](https://vale.sh) linter rules using natural language. It uses AI models combined with the official Vale documentation to create accurate YAML configurations.
+A web-based tool to generate [Vale](https://vale.sh) linter rules using natural language. It uses AI models combined with the official Vale documentation to create accurate YAML configurations. This tool is designed to lower the barrier to entry for creating custom Vale rules by translating plain English requests into valid rule syntax.
 
 <img width="1710" height="907" alt="Screenshot 2025-08-17 at 23 34 55" src="https://github.com/user-attachments/assets/a0e4b3d7-0099-4929-8b9a-8a7675803448" />
-
-This tool is designed to lower the barrier to entry for creating custom Vale rules by translating plain English requests into valid rule syntax.
 
 ## Features
 
